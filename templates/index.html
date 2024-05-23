@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microblog for {{username}}</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <script src="https://kit.fontawesome.com/a3cde3de90.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css" integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
+<!--    <link rel="stylesheet" href="static/css/specimen_files/specimen_stylesheet.css" type="text/css" charset="utf-8"/>-->
+    <link rel="stylesheet" href="static/css/stylesheet.css" type="text/css" charset="utf-8"/>
+
+    <style type="text/css">
+        body {
+            font-family: 'montserratregular';
+            letter-spacing: 0.05em;
+        }
+    </style>
+    <style>
+        #post_message{
+            min-height: 72px;
+            min-width: 99%;
+            /*margin-left: 40%;*/
+        }
+        body {
+            padding: 5px;
+        }
+        #main {
+            overflow-x: hidden;
+        }
+
+        @media (min-width: 600px) {
+            h1 {
+                font-size: 1.5em;
+            }
+            #main{
+                margin: 0 auto;
+                width: 60%;
+            }
+            #posting_form{
+                margin: 0 auto;
+                width: 75%;
+            }
+            #post_message_button {
+                margin-top: 1px !important;
+                margin: 0;
+            }
+            #post_button_container {
+                text-align: right;
+            }
+        }
+        h1 {
+            font-weight: bold;
+            font-size: 1em;
+        }
+        #post_message{
+            margin: 2px;
+            padding: 3px;
+        }
+        #post_message_button{
+            /*margin: 2px;*/
+            /*margin-right: 20px;*/
+            /*margin-left: 50%;*/
+        }
+        #get-response, #default-response, #default-public, #make-public{
+            margin: 5px;
+            padding: 5px;
+            margin-top: 10px;
+        }
+        #post_message_button {
+            margin-top: 15px;
+        }
+        .message{
+            margin: 1px;
+            padding: 4px;
+            margin-top: 1em;
+            margin-bottom: 1em;
+            border-bottom: 1px #999 solid;
+        }
+        .message:hover{
+            border: 1px #00b3ff solid;
+            padding: 3px 3px 4px 3px;
+            background: rgba(0, 179, 255, 0.03);
+        }
+        .details-time {
+            color: #999999;
+        }
+        .details-sender {
+            color: #3a768f;
+            font-weight: bold;
+        }
+        .the-message {
+            line-height: 1.3em;
+        }
+        .delete-post-btn{
+            text-align: right;
+            float:right;
+            user-select: none;
+        }
+        .delete-post-btn:hover{
+            background: #ccc;
+        }
+
+    </style>
+
+</head>
+<body>
+    <div class="" id="main">
+        <div class="pure-menu pure-menu-horizontal">
+            <h1 class="content-subhead">
+                <a href="#" id="brand" class="pure-menu-heading pure-menu-link">
+                    <i class="fa-regular fa-pen-to-square"></i>📝️
+                    Microblog for Leo
+                </a></h1>
+            <!-- Login form -->
+            <ul class="pure-menu-list">
+                <li class="pure-menu-item"><a href="#" id="login" class="pure-menu-link">Login</a></li>
+                <li class="pure-menu-item"><a href="#" id="logout" class="pure-menu-link" hidden="hidden">Logout</a></li>
+            </ul>
+        </div>
+        <!-- login container hidden by default -->
+        <div id="login_container" class="pure-g" hidden="hidden">
+            <!-- username input field -->
+            <input id="username" class="pure-input-1-2" type="text" placeholder="Username" />
+
+            <!-- password input field -->
+            <input id="password" class="pure-input-1-2" type="password" placeholder="Password" />
+
+            <!-- Login button -->
+            <button id="login_button" class="pure-button pure-button-primary">Login</button>
+
+        </div>
+        <form class="pure-form" id="posting_form" action="#" hidden="hidden">
+            <fieldset>
+                <p id="viewcount">Viewcount: {{viewcount}}</p>
+                <legend>What's on your mind?</legend>
+                <textarea id="post_message" onkeyup="textAreaAdjust(this)" style="overflow:hidden"></textarea>
+                <div class="bottom_items" class="pure-g">
+                    <div class="pure-u-18-24">
+                        <label for="default-response" id="get-response" >
+                            <input type="checkbox" id="default-response" /> 🤖️ Get a response?
+                        </label>
+                        <label for="default-public" id="make-public">
+                            <input type="checkbox" id="default-public" /> 🌐️ Make public
+                        </label>
+                    </div>
+                    <div class="pure-u-4-24" id="post_button_container">
+                        <button id="post_message_button" class="pure-u pure-button pure-button-primary" >Post</button>
+                    </div>
+                </div>
+            </fieldset>
+            </form>
+            <div class="content" id="messages">
+            </div>
+
+    </div>
+<script>
+
+    // set cookie "logged_in_uid" to uuid
+    function setCookie(cname, cvalue, exdays) {
+        const d = new Date();
+        d.setTime(d.getTime() + (exdays*24*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+    }
+
+    function togglePostBox(enabled){
+        console.log("Enabling posting form: " + enabled)
+        document.getElementById("posting_form").hidden = !enabled;
+    }
+
+    // get cookie "logged_in_uid"
+    function getCookie(cname) {
+        let name = cname + "=";
+        let decodedCookie = decodeURIComponent(document.cookie);
+        let ca = decodedCookie.split(';');
+        for(let i = 0; i <ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) == ' ') {
+                c = c.substring(1);
+            }
+            if (c.indexOf(name) == 0) {
+                return c.substring(name.length, c.length);
+            }
+        }
+        return "";
+    }
+
+    // clear post_message text
+    function clear_post_message() {
+        document.getElementById("post_message").value = "";
+    }
+    clear_post_message();
+
+    // on login button click show login form
+    document.getElementById("login").addEventListener("click", function() {
+        document.getElementById("login_container").hidden = false;
+        //document.getElementById("user_container").hidden = false;
+        //document.getElementById("logout_container").hidden = false;
+    });
+
+    // send_login_request which sends username and password to server via ajax
+    function send_login_request(username, password) {
+        let url = "/login";
+        let params = "username=" + username + "&password=" + password;
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", url, true);
+        xhr.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+        xhr.send(params);
+        xhr.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                //console.log(this.responseText)
+                // decode response text json string to object
+                let response = JSON.parse(this.responseText);
+                if (response.success) {
+                    document.getElementById("login_container").hidden = true;
+                    document.getElementById("login").hidden = true;
+                    document.getElementById("logout").hidden = false
+                    setCookie("logged_in_uuid", response.session_token, 1);
+                    window.location.reload();
+                } else {
+                    // show a popup saying invalid credintials
+                    alert("Invalid Credentials. Please try again.");
+                }
+            }
+        };
+    }
+
+    function update_logged_in(){
+        document.getElementById("login_container").hidden = true;
+        document.getElementById("login").hidden = true;
+        document.getElementById("logout").hidden = false;
+        togglePostBox(true);
+    }
+
+    // with ajax call /get_logged_in
+    function get_logged_in() {
+        let url = "/get_logged_in";
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.send();
+        xhr.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                //console.log(this.responseText)
+                if (this.responseText == "success") {
+                    update_logged_in();
+                }
+            }
+        };
+    }
+
+    // on login_button press get username and password and send to server
+    document.getElementById("login_button").addEventListener("click", function() {
+        let username = document.getElementById("username").value;
+        let password = document.getElementById("password").value;
+        send_login_request(username, password);
+    });
+
+    // on logout button press send "/logout" to server
+    document.getElementById("logout").addEventListener("click", function() {
+        console.log("Logging out..")
+        let url = "/logout";
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.send();
+        setCookie("logged_in_uuid", "", -1);
+        xhr.onreadystatechange = function () {
+            location.reload(true);
+        }
+    });
+
+    let post_button = document.getElementById("post_message_button");
+    let username = "{{username}}";
+
+    // check logged_in uuid with server - send /check_uuid to server
+    function check_uuid_and_login() {
+        let url = "/check_uuid?uuid=" + getCookie("logged_in_uuid");
+        let xhr = new XMLHttpRequest();
+        xhr.open("GET", url, true);
+        xhr.send();
+        xhr.onreadystatechange = function () {
+            if (this.readyState == 4 && this.status == 200) {
+                console.log(this.responseText)
+                let response = JSON.parse(this.responseText);
+                if (response.success) {
+                    update_logged_in()
+                } else {
+                    togglePostBox(false);
+                }
+            }
+        };
+    }
+
+    // If logged in cookie set
+    check_uuid_and_login();
+
+    function textAreaAdjust(element) {
+      element.style.height = "1px";
+      element.style.height = (25+element.scrollHeight)+"px";
+    }
+
+    function linkifyText(text) {
+    // Regular expression to match URLs
+    var urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.replace(urlRegex, function(url) {
+        return '<a href="' + url + '" target="_blank">' + url + '</a>';
+    });
+}
+
+    // Display a single message
+    function append_message_below(message){
+        let messagesDiv = document.getElementById("messages");
+        let messageDiv = document.createElement("div");
+        messageDiv.className = "message";
+
+        messageDiv.innerHTML = message;
+        messagesDiv.appendChild(messageDiv);
+    }
+
+    function format_message(message_obj_i, index){
+        if(message_obj_i === undefined){
+            return ""
+        }
+        //console.log(message_obj_i)
+        let message_content = "";
+            message_content += `<span id="time-${index}" class="details-time"> ${message_obj_i["time"]}:&nbsp</span>`;
+            let sender = message_obj_i["sender"];
+            if(sender == "user"){
+                sender = username;
+            } else if(sender == "ai"){
+                sender = "ChatGPT";
+            }
+            let visibility_icon = "🌐️"
+            if(message_obj_i["public"] !== "true"){
+                visibility_icon = "🔏️";
+            }
+            let message = linkifyText(message_obj_i["message"])
+            message_content += `<span class="visibility">${visibility_icon}&nbsp;</span>`
+            message_content += `<span class="details-sender">${sender}:&nbsp;</span>`;
+            message_content += `<span class="the-message">&nbsp;${message}</span>`;
+            message_content += '<p class="likes">🤍️&nbsp;' + message_obj_i['likes']
+            if(index !== 99999){
+                message_content += `&nbsp;<span class="delete-post-btn" id="delete-${index}">❌</span></p>`;
+            }
+            return message_content
+    }
+
+    // Display the messages once retrieved
+    function display_messages(messages) {
+        let messagesDiv = document.getElementById("messages");
+        messagesDiv.innerHTML = "";
+        let messages_obj = JSON.parse(messages).reverse();
+
+        let random_message_obj = messages_obj[Math.floor(Math.random() * messages_obj.length)];
+        let message_content = format_message(random_message_obj, 99999);
+        append_message_below(message_content);
+
+        for(let i=0; i < messages_obj.length; i++){
+            let message_content = format_message(messages_obj[i], i);
+            /*
+            let message_content = "";
+            message_content += `<span id="time-${i}" class="details-time"> ${messages_obj[i]["time"]}:&nbsp</span>`;
+            let sender = messages_obj[i]["sender"];
+            if(sender == "user"){
+                sender = username;
+            } else if(sender == "ai"){
+                sender = "ChatGPT";
+            }
+            let visibility_icon = "🌐️"
+            if(messages_obj[i]["public"] !== "true"){
+                visibility_icon = "🔏️";
+            }
+            message_content += `<span class="visibility">${visibility_icon}&nbsp;</span>`
+            message_content += `<span class="details-sender">${sender}:&nbsp;</span>`;
+            message_content += `<span class="the-message">&nbsp;${messages_obj[i]["message"]}</span>`;
+            message_content += '<p class="likes">🤍️&nbsp;' + messages_obj[i]['likes']
+            message_content += `&nbsp;<span class="delete-post-btn" id="delete-${i}">❌</span></p>`;
+            */
+            append_message_below(message_content);
+        }
+        for(let i = 0; i < messages_obj.length; i++) {
+            let del_i_btn = document.getElementById("delete-" + i);
+            let time_span = document.getElementById("time-" + i);
+            let timestamp = time_span.innerHTML;
+
+            del_i_btn.onclick = function () {
+                var xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function () {
+                    console.log("delete sent");
+                    if (this.readyState == 4 && this.status == 200) {
+                        if (this.responseText == "success") {
+                            get_messages();
+                        }
+                    }
+                }
+                xhttp.open("Get", "/delete_timestamp?timestamp=" + timestamp, true);
+                xhttp.send();
+            }
+        }
+
+    }
+
+    // Get the posts and responses
+    function get_messages(){
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+               // Typical action to be performed when the document is ready:
+               display_messages(this.responseText);
+            }
+        };
+        xhttp.open("Get", "/get_messages?uuid="+getCookie("logged_in_uuid"), true);
+        xhttp.send();
+    }
+
+    // Send the post
+    function post_message(message){
+        let messageb64 = btoa(unescape(encodeURIComponent(message)));
+
+        let checked = document.getElementById("default-response").checked;
+        let public = document.getElementById("default-public").checked;
+        let btn = document.getElementById("post_message_button");
+        if(checked) {
+            btn.disabled = true;
+            btn.innerHTML = "Loading";
+        }
+
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+            console.log("post sent");
+            if (this.readyState == 4 && this.status == 200) {
+                if(this.responseText == "success"){
+                    if(checked){
+                        btn.disabled = false;
+                        btn.innerHTML = "Post";
+                    }
+                    document.getElementById("post_message").value = "";
+                    get_messages();
+                }
+            }
+        };
+
+        xhttp.open("GET", "/post_message?message=" + messageb64 + "&response=" + checked + "&public=" + public, true);
+        xhttp.send();
+    }
+
+    // Post the thing
+    post_button.onclick = function(event){
+        event.preventDefault();
+        console.log("Post!");
+        let message = document.getElementById("post_message").value;
+
+        //console.log(message);
+        post_message(message);
+    };
+
+    // On startup
+    get_messages();
+
+</script>
+
+</body>
+</html>
